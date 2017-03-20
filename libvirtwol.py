@@ -36,14 +36,15 @@ class LibVirtWakeOnLan:
 
     @staticmethod
     def StartServerByMACAddress(mac):
-        conn = libvirt.open(None)
+        conn = libvirt.open('qemu:///system')
         if conn is None:
             logging.error('Failed to open connection to the hypervisor')
             sys.exit(1)
 
-        domains = conn.listDefinedDomains()
-        for domainName in domains:
-            domain = conn.lookupByName(domainName)
+        domains = conn.listDomainsID()
+        for domainID in domains:
+            domain = conn.lookupByID(domainID)
+            logging.info(domain.name())
             params = []
             # TODO - replace with api calls to fetch network interfaces
             xml = minidom.parseString(domain.XMLDesc(0))
@@ -52,9 +53,17 @@ class LibVirtWakeOnLan:
                 for interface in device.getElementsByTagName("interface"):
                     macadd = interface.getElementsByTagName("mac")
                     foundmac = macadd[0].getAttribute("address")
+                    logging.info("%s - %s",mac,foundmac)
                     if foundmac == mac:
-                        logging.info("Waking up %s", domainName)
-                        domain.create()
+                        logging.info("Waking up %s", domain.name())
+                        try:
+                            domain.create()
+			except:
+                            pass
+                        try:
+                            domain.pMWakeup()
+			except:
+                            pass
                         return True
         logging.info("Didn't find a VM with MAC address %s", mac)
         return False
